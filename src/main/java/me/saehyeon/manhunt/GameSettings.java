@@ -12,7 +12,7 @@ public class GameSettings implements Serializable {
     public boolean enable_unite = false;
     public boolean enable_anti_hunger = false;
     public boolean enable_balance_mode = false;
-    public int start_time_sec = 5; //TODO 90으로 설정
+    public int start_time_sec = 5;
     public boolean lolicon_mode = false;
     public int update_actionbar_sec = 20;
 

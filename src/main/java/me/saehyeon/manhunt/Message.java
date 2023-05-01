@@ -17,6 +17,7 @@ public class Message {
     // 포만감 모드 ------------------------------
     public static final String GUI_GS_ANTI_HUNGER       = "§f§l포만감";
     public static final String GUI_GS_ANTI_HUNGER_INFO  = "§f허기가 닳지 않습니다.";
+    public static final String GUI_GS_BALANCE_DISABLED_BY_HUNGER = "밸런스 모드가 활성화되었으므로, 포만감 모드가 §c비활성화되었습니다.";
 
     // 밸런스 모드 ------------------------------
     public static final String GUI_GS_BALANCE           = "§f§l밸런스";

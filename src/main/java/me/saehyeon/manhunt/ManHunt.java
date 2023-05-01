@@ -53,7 +53,7 @@ public class ManHunt {
     static HashMap<UUID, Inventory> inv = new HashMap<>();
     public static HashMap<UUID, TaskType> tasks = new HashMap<>();
     public static boolean cantMove = false;
-    static UUID targetUUID;
+    public static UUID targetUUID;
     static String originName;
 
     static BukkitTask runAwayTimer;

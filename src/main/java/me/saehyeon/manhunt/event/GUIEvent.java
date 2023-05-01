@@ -1,32 +1,24 @@
-package me.saehyeon.manhunt;
+package me.saehyeon.manhunt.event;
 
-import org.bukkit.*;
+import me.saehyeon.manhunt.ManHunt;
+import me.saehyeon.manhunt.TargetKitType;
+import me.saehyeon.manhunt.TaskType;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.FoodLevelChangeEvent;
-import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.event.player.*;
 
-import static me.saehyeon.manhunt.ManHunt.cantMove;
 import static me.saehyeon.manhunt.ManHunt.gameSettings;
 import static me.saehyeon.manhunt.Message.*;
 
-public class Event implements Listener {
-    @EventHandler
-    void onDamage(EntityDamageEvent e) {
-        if(e.getEntity() instanceof Player) {
-            Player p = ((Player) e.getEntity());
-
-            // 타깃을 제외한 인원은 움직이지 못할 때는 데미지를 입지 않음
-            if(cantMove && !ManHunt.isTarget(p)) {
-                e.setCancelled(true);
-            }
-        }
-    }
+/**
+ * GUI 관련 이벤트를 관리합니다.
+ */
+public class GUIEvent implements Listener {
     @EventHandler
     void onInventoryClick(InventoryClickEvent e) {
         Player p = (Player)e.getWhoClicked();
@@ -70,27 +62,27 @@ public class Event implements Listener {
                 boolean enabled;
 
                 switch (itemName) {
-                    case "§f§l거리 보이기" -> {
+                    case GUI_GS_DISTANCE -> {
                         gameSettings.enable_show_distance = !gameSettings.enable_show_distance;
                         enabled = gameSettings.enable_show_distance;
                     }
 
-                    case "§f§l집결" -> {
+                    case GUI_GS_UNITE -> {
                         gameSettings.enable_unite = !gameSettings.enable_unite;
                         enabled = gameSettings.enable_unite;
                     }
 
-                    case "§f§l포만감" -> {
+                    case GUI_GS_ANTI_HUNGER -> {
                         gameSettings.enable_anti_hunger = !gameSettings.enable_anti_hunger;
                         enabled = gameSettings.enable_anti_hunger;
                     }
 
-                    case "§f§l밸런스" -> {
+                    case GUI_GS_BALANCE -> {
                         gameSettings.enable_balance_mode = !gameSettings.enable_balance_mode;
                         enabled = gameSettings.enable_balance_mode;
                         if (gameSettings.enable_anti_hunger) {
                             gameSettings.enable_anti_hunger = false;
-                            Bukkit.broadcastMessage("밸런스 모드가 활성화되었으므로, 포만감 모드가 §c비활성화되었습니다.");
+                            Bukkit.broadcastMessage(GUI_GS_BALANCE_DISABLED_BY_HUNGER);
                         }
                     }
 
@@ -117,7 +109,7 @@ public class Event implements Listener {
                     case GUI_TI_NETHERITE_SET  -> ManHunt.targetKitType = TargetKitType.NETHERITE;
                 }
 
-                Bukkit.broadcastMessage("§7"+p.getName()+"§f에 의해 타깃의 기본 아이템이 "+ManHunt.targetKitType.krName+"§f(으)로 설정되었습니다.");
+                Bukkit.broadcastMessage("§7"+p.getName()+"§f에 의해 타깃의 기본 아이템이 "+ManHunt.targetKitType.getKRName()+"§f(으)로 설정되었습니다.");
                 ManHunt.getInstance().openTargetItemGUI(p);
             }
         }
@@ -126,109 +118,5 @@ public class Event implements Listener {
     @EventHandler
     void onCloseInventory(InventoryCloseEvent e) {
         ManHunt.tasks.remove(e.getPlayer().getUniqueId());
-    }
-
-    @EventHandler
-    void onMove(PlayerMoveEvent e) {
-        if(!ManHunt.isTarget(e.getPlayer())) {
-            e.setCancelled(ManHunt.cantMove);
-        }
-    }
-
-    @EventHandler
-    void onDeath(PlayerDeathEvent e) {
-        Player p = e.getPlayer();
-        Player target = Bukkit.getPlayer(ManHunt.targetUUID);
-
-        // 타깃이 죽음 -> 술래 승리, 게임종료
-        if(target != null && target == p) {
-            if(gameSettings.lolicon_mode) {
-                Bukkit.getOnlinePlayers().forEach(_p -> _p.sendTitle("§f§l게임종료!","§f타깃이 강간당했어요."));
-            } else {
-                Bukkit.getOnlinePlayers().forEach(_p -> _p.sendTitle("§f§l게임종료!","§f타깃이 죽었어요."));
-            }
-
-            ManHunt.getInstance().Stop();
-        }
-    }
-
-    @EventHandler
-    void onWorldChange(PlayerPortalEvent e) {
-        Player p = e.getPlayer();
-
-        Player target = Bukkit.getPlayer(ManHunt.targetUUID);
-
-        if(target != null) {
-            if(target == p) {
-
-                // 이 월드에서의 마지막 위치 저장하기
-                ManHunt.targetLastLoc.put(p.getWorld(), p.getLocation().clone());
-
-            }
-        }
-    }
-
-    @EventHandler
-    void onJoin(PlayerJoinEvent e) {
-        e.getPlayer().setScoreboard(ManHunt.scoreboard);
-
-        if(ManHunt.isTarget(e.getPlayer()) && !ManHunt.isStartCountDowning && ManHunt.isGaming) {
-            ManHunt.getInstance().StopWaitTarget();
-        }
-    }
-
-    @EventHandler
-    void onQuit(PlayerQuitEvent e) {
-
-        if(ManHunt.isTarget(e.getPlayer()) && !ManHunt.isStartCountDowning && ManHunt.isGaming) {
-            ManHunt.getInstance().StartWaitTarget();
-        }
-    }
-
-    @EventHandler
-    void onFoodLevel(FoodLevelChangeEvent e) {
-        if(gameSettings.enable_anti_hunger || gameSettings.enable_balance_mode) {
-            e.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    void onInteraction(PlayerInteractEvent e) {
-        // 타깃을 제외한 인원은 움직이지 못할 때는 데미지를 입지 않음
-        if(cantMove && !ManHunt.isTarget(e.getPlayer())) {
-            e.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    void onAtEntityInteraction(PlayerInteractAtEntityEvent e) {
-        // 타깃을 제외한 인원은 움직이지 못할 때는 데미지를 입지 않음
-        if(cantMove && !ManHunt.isTarget(e.getPlayer())) {
-            e.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    void onEntityInteraction(PlayerInteractEntityEvent e) {
-        // 타깃을 제외한 인원은 움직이지 못할 때는 데미지를 입지 않음
-        if(cantMove && !ManHunt.isTarget(e.getPlayer())) {
-            e.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    void onDrop(PlayerDropItemEvent e) {
-        // 타깃을 제외한 인원은 움직이지 못할 때는 데미지를 입지 않음
-        if(cantMove && !ManHunt.isTarget(e.getPlayer())) {
-            e.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    void onPickup(PlayerPickupItemEvent e) {
-        // 타깃을 제외한 인원은 움직이지 못할 때는 데미지를 입지 않음
-        if(cantMove && !ManHunt.isTarget(e.getPlayer())) {
-            e.setCancelled(true);
-        }
     }
 }

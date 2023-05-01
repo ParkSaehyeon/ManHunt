@@ -1,12 +1,14 @@
 package me.saehyeon.manhunt;
 
+import static me.saehyeon.manhunt.Message.*;
+
 public enum TargetKitType {
-    NONE("§c§l없음"),
-    WOOD("§6§l나무 세트"),
-    STONE("§7§l돌 세트"),
-    IRON("§f§l철 세트"),
-    DIAMOND("§b§l다이아몬드 세트"),
-    NETHERITE("§d§l네더라이트 세트");
+    NONE(GUI_TI_NONE),
+    WOOD(GUI_TI_WOOD_SET),
+    STONE(GUI_TI_STONE_SET),
+    IRON(GUI_TI_IRON_SET),
+    DIAMOND(GUI_TI_DIAMOND_SET),
+    NETHERITE(GUI_TI_NETHERITE_SET);
 
     final String krName;
     TargetKitType(String krName) {
