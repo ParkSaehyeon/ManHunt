@@ -1,0 +1,6 @@
+name: ManHunt
+version: '${project.version}'
+main: me.saehyeon.manhunt.Main
+api-version: 1.17
+commands:
+  멘헌트:

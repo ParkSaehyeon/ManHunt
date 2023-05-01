@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="ManHunt">
+    <output-path>$PROJECT_DIR$/../../마인크래프트/1.17.1 서버버킷/plugins</output-path>
+    <root id="archive" name="ManHunt.jar">
+      <element id="module-output" name="saehyeon" />
+    </root>
+  </artifact>
+</component>
