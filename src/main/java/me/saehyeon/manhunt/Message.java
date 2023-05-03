@@ -68,11 +68,16 @@ public class Message {
      *       시스템 메세지
      *
      */
+    public static final String CANT_MOVE             = "§c§l움직임 차단됨";
+    public static final String MOVE_START            = "§f§l이동시작!";
+    public static final String MOVE_START_INFO       = "이제 타깃을 제외한 인원도 움직일 수 있습니다.";
+
     // 모드 관련 ------------------------------
     public static final String MODE_ENABLED          = "§a활성화했습니다.";
     public static final String MODE_DISABLED         = "§c비활성화했습니다.";
     public static final String BALANCE_INFO          = "§b§l밸런스! §f모든 사람에게 재생 1이 지급되었으며 허기로 인한 체력 재생이 비활성화됩니다.";
     public static final String ANTI_HUNGER_INFO      = "§6§l포만감! §f허기가 닳지 않습니다.";
+    public static final String LOLICON_INFO          = "§d§l로리콘! §f이제부터 타깃은 히유입니다.";
 
     // 타깃 대기 타이머 관련 ------------------------------
     public static final String WAIT_TIMER_START      = "§c§l타깃을 찾을 수 없어요. §f타깃인 플레이어가 다시 접속할때까지 기다릴게요.";

@@ -7,6 +7,7 @@ import org.bukkit.*;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
@@ -67,13 +68,14 @@ public class ManHunt {
     public static TargetKitType targetKitType = TargetKitType.NONE;
     public static HashMap<World, Location> targetLastLoc = new HashMap<>();
     public static GameSettings gameSettings = new GameSettings();
+    static BossBar runAwayTimerBossBar;
 
     /**
      * 타깃 설정 GUI
      * @param player 띄울 플레이어
      */
     public void openTargetSettingGUI(Player player) {
-        inv.put(player.getUniqueId(), Bukkit.createInventory(null, 54, GUI_GS_TITLE));
+        inv.put(player.getUniqueId(), Bukkit.createInventory(null, 54, GUI_TS_TITLE));
         player.openInventory(inv.get(player.getUniqueId()));
         tasks.put(player.getUniqueId(), TaskType.TARGET_SETTING);
 
@@ -550,9 +552,9 @@ public class ManHunt {
     BukkitTask StartRunawayTimer() {
         final String BOSSBAR_TITLE_STR = "§f§l이동 시작까지 남은시간";
 
-        BossBar bossbar = Bukkit.createBossBar(BOSSBAR_TITLE_STR, BarColor.WHITE, BarStyle.SOLID);
+        runAwayTimerBossBar = Bukkit.createBossBar(BOSSBAR_TITLE_STR, BarColor.WHITE, BarStyle.SOLID);
 
-        Bukkit.getOnlinePlayers().forEach(bossbar::addPlayer);
+        Bukkit.getOnlinePlayers().forEach(runAwayTimerBossBar::addPlayer);
 
         // 이동 시작 카운트 다운 상태 활성화
         isStartCountDowning = true;
@@ -562,7 +564,7 @@ public class ManHunt {
 
         // 타깃을 제외한 나머지 인원에게 움직임 차단 타이틀 출력
         Bukkit.getOnlinePlayers().stream().filter(p -> !isTarget(p)).forEach(p -> {
-            p.sendTitle("§c§l움직임 차단됨","",0,20*gameSettings.start_time_sec,0);
+            p.sendTitle(CANT_MOVE,"",0,20*gameSettings.start_time_sec,0);
         });
 
         final double decrement = 1D / (double)gameSettings.start_time_sec;
@@ -572,26 +574,26 @@ public class ManHunt {
 
         return Bukkit.getScheduler().runTaskTimer(Main.ins, () -> {
 
-            double _progress = bossbar.getProgress() - decrement;
+            double _progress = runAwayTimerBossBar.getProgress() - decrement;
 
             if(_progress > 0) {
 
                 leftSec.getAndDecrement();
-                bossbar.setProgress(_progress);
-                bossbar.setTitle(BOSSBAR_TITLE_STR+": "+leftSec.get()+"초");
+                runAwayTimerBossBar.setProgress(_progress);
+                runAwayTimerBossBar.setTitle(BOSSBAR_TITLE_STR+": "+leftSec.get()+"초");
 
             } else {
                 // 이동 시작 카운트 다운 상태 비활성화
                 isStartCountDowning = false;
 
                 // 이동시작 타이틀 출력
-                Bukkit.getOnlinePlayers().forEach(p -> p.sendTitle("§f§l이동시작!","이제 타깃을 제외한 인원도 움직일 수 있습니다.",0,50,15));
+                Bukkit.getOnlinePlayers().forEach(p -> p.sendTitle(MOVE_START,MOVE_START_INFO,0,50,15));
 
                 // 움직임 차단 해제
                 cantMove = false;
 
                 // 보스바 제거
-                bossbar.removeAll();
+                runAwayTimerBossBar.removeAll();
 
                 // 타이머 취소
                 runAwayTimer.cancel();
@@ -601,28 +603,57 @@ public class ManHunt {
     }
 
     public void Start(Player player) {
+        // 2명 이상의 사람이 있어야 시작함
+        if(Bukkit.getOnlinePlayers().stream().filter(p -> p.getGameMode() != GameMode.SPECTATOR).collect(Collectors.toList()).size() < 2) {
+            player.sendMessage("§c게임을 시작할 수 없어요. 게임을 진행하기 위해서는 2명 이상의 플레이어가 필요해요.");
+            return;
+        }
+
         // 현재 타깃이 존재하지 않다면, 타깃을 랜덤으로 설정하기
         if(targetUUID == null) UpdateRandomTarget();
 
         // 게임 중 상태 활성화
         isGaming = true;
 
-        // 게임시작하면
-        // - 모든 사람 인벤토리 초기화
-        // - 모든 사람 최대 체력 초기화
-        // - 모든 사람을 명령어 작성자에게 TP
-        float distance = Bukkit.getOnlinePlayers().size() / 2;
+        // ---- 월드 생성 시작
+        World oldManHuntWorld = Bukkit.getWorld("manhunt");
 
-        // 콘솔에서 입력된 명령어 출력을 보이지 않게 하고, 명령 입력이 끝나면 다시 게임 룰을 되돌리기
-        boolean originSendCommandFeed = player.getWorld().getGameRuleValue(GameRule.SEND_COMMAND_FEEDBACK);
-        player.getWorld().setGameRule(GameRule.SEND_COMMAND_FEEDBACK, false);
+        if(oldManHuntWorld != null) {
 
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "spreadplayers "+player.getLocation().getX()+" "+player.getLocation().getZ()+" "+Math.round(distance)+" "+Math.round(distance)+" false @a");
+            // 월드 언로드
+            Bukkit.unloadWorld(oldManHuntWorld,false);
 
-        player.getWorld().setGameRule(GameRule.SEND_COMMAND_FEEDBACK, originSendCommandFeed);
+            // 월드 삭제
+            Util.sendActionbarAll("§7기존의 멘헌트 세계를 삭제 중이에요..");
+            Util.deleteDirectory(oldManHuntWorld.getWorldFolder().getAbsolutePath());
+        }
 
-        // 모든 플레이어에 관한 처리
+        // ---- 월드 생성
+        Util.sendActionbarAll("§7멘헌트 세계를 생성 중이에요..");
+
+        WorldCreator worldCreator = new WorldCreator("manhunt");
+        World manHuntWorld = worldCreator.createWorld();
+
+        Util.sendActionbarAll("§7명령자를 멘헌트 세계로 이동시켰어요.");
+        player.teleport(manHuntWorld.getSpawnLocation());
+
+        // ---- 월드 세팅
+        Util.sendActionbarAll("§7세계들을 설정하고 있어요..");
+
+        player.getWorld().setTime(3000);
+
+        // 모든 월드에 떨어진 아이템 없애기
+        Util.sendActionbarAll("§7모든 세계의 아이템을 삭제하고 있어요..");
+        for(World world : Bukkit.getWorlds()) {
+            world.getEntities().stream().filter(en -> en.getType() == EntityType.DROPPED_ITEM).forEach(item -> item.remove());
+            world.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, true);
+        }
+
+        // ---- 모든 플레이어에 관한 처리
+        Util.sendActionbarAll("§7플레이어 상태를 초기화하고 있어요..");
         Bukkit.getOnlinePlayers().forEach(p -> {
+            p.eject();
+            p.setGameMode(GameMode.SURVIVAL);
             p.resetMaxHealth();
             p.getInventory().clear();
             p.setHealth(20);
@@ -630,13 +661,23 @@ public class ManHunt {
             p.setBedSpawnLocation(player.getLocation(),true);
         });
 
+        // ---- 모든 플레이어 랜덤 TP
+        Bukkit.getScheduler().runTaskLater(Main.ins, () -> {
+            Util.sendActionbarAll("§7모든 플레이어를 랜덤 TP하고 있어요..");
+
+            Util.spreadPlayer(player.getLocation(), Bukkit.getOnlinePlayers().size() / 2);
+        },5);
+
+        // ---- 타깃 관련
         Player target = Bukkit.getPlayer(targetUUID);
 
-        // 타깃에게 기본템 주기
+        // 타깃 기본템 지급
         giveDefaultItem();
+        Util.sendActionbarAll("§7타깃에게 기본템을 지급했어요.");
 
-        // 엑션바 갱신 시작
+        // ---- 엑션바 갱신 시작
         updateActionBar = UpdateActionBar();
+        Util.sendActionbarAll("§7엑션바 갱신을 시작합니다.");
 
         // ---- 게임 설정에 따른 출력 및 처리
 
@@ -645,12 +686,13 @@ public class ManHunt {
             Bukkit.broadcastMessage("");
             Bukkit.broadcastMessage("§c§l집결! §f타깃이 아닌 사람은 얼마나 뭉쳐다니는 지에 비례하여 최대 체력이 갱신됩니다.");
             updateMaxHealth = UpdateMaxHealth();
+            Util.sendActionbarAll("§7최대 체력 갱신을 시작합니다.");
         }
 
         // 로리콘 모드
         if(gameSettings.lolicon_mode) {
             Bukkit.broadcastMessage("");
-            Bukkit.broadcastMessage("§d§l로리콘! §f이제부터 §7"+target.getName()+"§f(은)는 히유입니다.");
+            Bukkit.broadcastMessage(LOLICON_INFO);
 
             // 원래 이름 저장
             originName = target.getName();
@@ -671,6 +713,8 @@ public class ManHunt {
             Bukkit.broadcastMessage("");
             Bukkit.broadcastMessage(BALANCE_INFO);
 
+            Util.sendActionbarAll("§7밸런스 모드에 따른 처리 중이에요.");
+
             Bukkit.getOnlinePlayers().forEach(p -> {
                 p.setFoodLevel(10);
                 p.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 100000, 0,false,false,false));
@@ -690,8 +734,12 @@ public class ManHunt {
         runAwayTimer = StartRunawayTimer();
     }
 
-    public void Stop() {
+    public void Stop(RoleType winRole) {
         Main.ins.getLogger().log(Level.INFO,"게임을 중지하는 중");
+
+        //TODO 이거 보스바 타이머 없애셈
+        if(runAwayTimerBossBar != null)
+            runAwayTimerBossBar.removeAll();
 
         // 게임 중 상태 비활성화
         isGaming = false;
@@ -725,6 +773,53 @@ public class ManHunt {
         if(updateWaitTarget != null) {
             ManHunt.getInstance().StopWaitTarget();
             Main.ins.getLogger().log(Level.INFO," -> 타깃을 기다리는 타이머 중지");
+        }
+
+        ArrayList<Player> players = new ArrayList<>(Bukkit.getOnlinePlayers());
+
+        // ---- 모든 플레이어 후처리
+        // - 스폰 재 지정
+        World world = Bukkit.getWorld("world");
+        final Location WORLD_SPAWN = new Location(world,-6,4,-5);
+        WORLD_SPAWN.setPitch(0);
+        WORLD_SPAWN.setYaw(180);
+
+        players.forEach(p -> {
+            p.setBedSpawnLocation(WORLD_SPAWN);
+            world.setSpawnLocation(WORLD_SPAWN);
+
+            // 월드로 이동
+            p.teleport(WORLD_SPAWN);
+        });
+
+        // ---- 승리 메세지 띄우기
+        if(winRole != null) {
+
+            // 소리 재생
+            players.forEach(p -> p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER,1,1));
+
+            // 이긴 사람이 타깃
+            if(winRole == RoleType.TARGET) {
+                players.forEach(p -> {
+                    if (ManHunt.isTarget(p)) {
+                        p.sendTitle("§b§l승리!", "엔더유적에 진입했어요.", 0, 50, 20);
+                    } else {
+                        p.sendTitle("§c§l타깃을 놓침!", "타깃이 엔더유적에 진입했어요.", 0, 50, 20);
+                    }
+                });
+            }
+
+            // 이긴 사람이 술래
+            else {
+                players.forEach(p -> {
+                    if (!ManHunt.isTarget(p)) {
+                        p.sendTitle("§b§l승리!", "타깃을 잡았어요.", 0, 50, 20);
+                    } else {
+                        p.sendTitle("§c§l도망가지 못 함!", "엔더유적에 진입하지 못했어요.", 0, 50, 20);
+                    }
+                });
+            }
+
         }
 
         targetUUID = null;

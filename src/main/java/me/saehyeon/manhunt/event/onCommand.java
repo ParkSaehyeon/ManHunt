@@ -125,8 +125,13 @@ public class onCommand implements CommandExecutor {
                         break;
 
                     case "중지":
-                        ManHunt.getInstance().Stop();
+                        ManHunt.getInstance().Stop(null);
                         break;
+
+                    case "unload":
+                        Bukkit.unloadWorld(Bukkit.getWorld("manhunt"),false);
+                        break;
+
                     default:
                         p.sendMessage("§c알 수 없는 명령입니다. 사용법은 '/멘헌트 [시작/타깃수동설정/게임설정/기본템설정/중지/엑션바갱신시간]'입니다.");
                         break;
